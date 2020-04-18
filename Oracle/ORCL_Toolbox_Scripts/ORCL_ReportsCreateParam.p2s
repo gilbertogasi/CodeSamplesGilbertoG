@@ -1,0 +1,180 @@
+PROGRAM agrega_parametro_idversion_formas;
+// *Variables Declaration*
+VAR
+  I,J              : Number;
+  frm              : Number;
+  files            : TStringList;
+  items            : TStringList;
+  ps               : TParamScreen;
+  pb               : TParamBoard;
+  so               : TStringList;
+  v_filename       : Varchar2;
+  Parametro        : Varchar2;
+  TipodeDato       : Varchar2;
+  Itm_length       : Number;
+  ValorInicial     : Varchar2;
+  cadena           : Varchar2;
+  CreaSiNoExiste   : Boolean;
+  Param            : Number;
+  fname            : Varchar2;
+  db               : boolean;
+  //constantes
+  //C_PLSQL_DELIMITERS  =   ' +|*/-.%!<>:=;,[]''''()'+#10+#13+#09
+  //C_CR        =    #13+#10;
+
+  // Funci�n para buscar la cadena en el pl/sql
+
+{*Main Program Block*}
+BEGIN
+    //build together a nice parameter screen ...
+  ps := TParamScreen.create;
+  pb := ps.AddBoard('Formas de Pruebas',picModules);
+  
+  pb.addparam(parLabel,'MYLABEL','Script de Prueba','','');
+  
+  pb.addparam(parPathname,'SRCPATH','Directorio','C:\prueba','');
+
+  pb := ps.AddBoard('Opciones',picOptions);
+
+  pb.addparam(parString,'PARAMETRO','Parametro a Agregar: ','PARAM_1','');
+  ps.parambyname('PARAMETRO').isNewGroup := true;
+  
+  pb.addparam(parString,'TIPODEDATO','Tipo de Dato: ','CHAR','');
+  ps.parambyname('TIPODEDATO').isNewGroup := true;
+  
+  pb.addparam(parInteger,'ITMLENGTH','Tama�o del Campo','30','');
+  ps.parambyname('ITMLENGTH').isNewGroup := true;
+
+  pb.addparam (parString,'ValorInicial','Valor Inicial: ','0','');
+  ps.parambyname('ValorInicial').isNewGroup := true;
+  
+  pb.addparam(parCheckbox,'CREATEYN','Crea el Parametro si no existe','Y','');
+  
+  pb.addparam(parDatabaseLogon,'MYDATABASE','DB Connection','PRUEBA/PRUEBA@XE','');
+  ps.parambyname('MYDATABASE').isNewGroup := true;
+  
+  pb.addparam(parsaveFilename,'P_LOGSAVE','Log de Cambios','C:\prueba','');
+
+    //show the parameter screen and wait for inputs
+  IF ps.ShowParamScreen('Agrega Parametro IdVersi�n a la formas ...') then
+     BEGIN
+        //because it is nice in the log to see what parameters we have specified
+        //we just write them out
+       ps.LogParamScreen; -- Antes version 1 = LogParamScreen(ps);
+       fname := ps.paramvalue('P_LOGSAVE');
+       deletefile(fname);
+
+       //IF ps.ParamByName('SRCPATH').value ='' then raiseException('El Directorio no se puede accesar!');
+       IF ps.ParamByName('SRCPATH').value ='' then raiseException('El Directorio no se puede accesar!');
+          // Cargando parametros de entrada
+          Parametro      := upper(ps.ParamValue('PARAMETRO'));
+          TipodeDato     := upper(ps.ParamValue('TIPODEDATO'));
+          ValorInicial   := upper(ps.ParamValue('ValorInicial'));
+          Itm_length     := to_number(ps.ParamValue('ITMLENGTH'));
+          CreaSiNoExiste := ps.Paramvalue ('CREATEYN') = 'Y';
+
+          LogAdd('*** Inicio de Procesamiento de las Formas *** ');
+          saveappendstring ( ('*** Inicio de Procesamiento de las Formas *** ')+c_cr, fname);
+          LogAdd(' Ejecutado por '+GetUserName);
+          saveappendstring ( (' Ejecutado por '+GetUserName)+c_cr, fname);
+          LogAdd(' Fecha de ejecuci�n '+DateTimeToStr(Sysdate));
+          saveappendstring ( (' Fecha de ejecuci�n '+DateTimeToStr(Sysdate))+c_cr, fname);
+
+
+          logadd(' Conexion: '+ps.ParamValue('MYDATABASE'));
+          saveappendstring ( (' Conexion: '+ps.ParamValue('MYDATABASE'))+c_cr, fname);
+
+          // try to connect but ignore any errors ...
+          try
+            -- connect the API context to the database before loading any modules
+            API_Connect(ps.paramvalue('MYDATABASE'));
+          except
+            logadd(' =>' +GetError,LogError);
+          end;
+
+          //get the list of forms modules to process (with all subdirectories)
+          //into a list
+          files := GetFileList(ps.ParamByName('SRCPATH').value,'*.fmb;', true);
+          
+          //loop through the list of files and process them  Si hay archivos
+          FOR j := 0 to files.count-1 do
+            BEGIN
+              TRY
+              v_filename := files.strings[j];
+              logadd('Verificando ('+to_char(j+1)+'/'+to_char(files.count)+')'+v_filename);
+              saveappendstring ( ('  Verificando.. ('+to_char(j+1)+'/'+to_char(files.count)+' '+files.strings[j])+c_cr, fname);
+
+                // Carga el Modulo Forma
+                //frm  := API_LoadModule( files.strings[j] );
+                frm  := API_LoadModule(v_filename);
+                    
+                // trata de encontrar el Parametro de Forma
+                Param := Generic_FindObj(frm, Parametro, D2FFO_FORM_PARAM);
+                //Logadd(' Param:'+to_char(Param));
+
+
+                IF (Param = 0) and (CreaSiNoExiste = True) then
+                  Begin
+                    Param := Generic_Create (frm, Parametro, D2FFO_FORM_PARAM);
+                    Logadd (' ==>> Parametro Nuevo Creado exitosamente: '+Parametro);
+                    saveappendstring ( (' ==>> Parametro Nuevo Creado exitosamente: '+Parametro)+c_cr, fname);
+                    
+                    v_filename := ps.ParamValue ('SRCPATH') +'\'+ extractFilename(v_filename);
+                    API_SaveModule(frm, v_filename);
+                    if api_generatemodule(frm) = false then
+                      begin
+                        logadd(' => compilation failed!',LogError);
+                        saveappendstring ( (' => Fallo la compilaci�n!')+c_cr, fname);
+                      end;
+                  end;
+
+                IF Param <> 0 then
+                  Begin
+                    // ahora modificar el parametro creado en el paso anterior
+                    //-- ** TipodeDato = char ===>> 0
+                    //-- **               num  ===>> 1
+                    //-- **               date ===>> 2
+                    IF Generic_GetNumProp(Param, D2FP_PARAM_DAT_TYP) <>  0 then
+                      begin
+                        Generic_SetNumProp(Param, D2FP_PARAM_DAT_TYP, 0);
+                        logadd( 'Creo SetNumPro con:' +TipodeDato );
+                        saveappendstring ( ( 'Creo SetNumPro con:' +TipodeDato )+c_cr, fname);
+                      end;
+
+                    IF Generic_GetNumProp(Param, D2FP_MAX_LEN) <> Itm_Length then
+                      begin
+                        Generic_SetNumProp (Param, D2FP_MAX_LEN, Itm_Length);
+                        //logadd( 'Creo SetNumPro con:' +Itm_Length );
+                      end;
+
+                    Generic_SetTextProp (Param, D2FP_PARAM_INIT_VAL, ValorInicial);
+                           //--Generic_SetTextProp(Param, D2FP_COMMENT, Comentarios);
+                  END;
+                  /*
+                  if api_generatemodule(frm) = false then
+                      begin
+                        logadd(' => compilation failed! ',Logerror);
+                        saveappendstring ( (' => Fallo la compilaci�n!')+c_cr, fname);
+                      end;
+                  */
+                  //FILES.FREE;
+                  //... and finally release the module from memory
+                  API_DestroyModule(frm);
+                EXCEPT
+                // ups! an error happened, so just log it and proceed to the next module
+                Logadd(' => '+GetError, Logerror);
+                saveappendstring( (' => Error en este archivo')+c_cr,fname);
+               END;
+             END;
+           // liberar los files
+        saveappendstring ( (' Fin del proceso de Script de Prueba ')+c_cr, fname);
+     END ELSE
+         BEGIN
+              //user must have pressed cancel on parameterscreen
+             logadd('Canceled on parameterscreen!');
+             //saveappendstring ( ('Operacion Canceleda por el usuario!')+c_cr,fname);
+         END; //-- ok..
+     // free the parameter screen
+     ps.free;
+     host('notepad.exe '+fname,false);
+END. --ok.
