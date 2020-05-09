@@ -21,5 +21,6 @@ def sumRecursiva():
     except: 
         print('Error: {}'.format(sys.exc_info()))
 
+
 if __name__ == '__main__':
     sumRecursiva()

@@ -11,6 +11,7 @@ def encrypter(text):
     
     return newKey
 
+
 def decrypter(text):
     textDecrypt = ''
     l = []
@@ -25,6 +26,7 @@ def decrypter(text):
         textDecrypt = textDecrypt + chr(decimal)
 
     return textDecrypt
+
 
 if __name__ == '__main__':
     s = input('Digite una letra o palabra: ')
