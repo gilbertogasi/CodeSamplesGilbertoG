@@ -52,7 +52,7 @@ for i in df.index:
             else:
                Muni += 1
 
-        Seq.append(Muni)
+    Seq.append(Muni)
 
 df = pd.DataFrame({'CODIGO_MUNICIPIO': Seq})
 writer = pd.ExcelWriter('c:\\temp\\demo.xlsx', engine='xlsxwriter')
