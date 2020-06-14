@@ -73,13 +73,14 @@ def list_clients():
                 position = client['position']))
 
 
-def update_client(client_name, updated_client_name):
+def update_client(index, client):
     global clients
 
-    if client_name in clients:
-        index = clients.index(client_name)
-        clients[index] = updated_client_name
-    else:
+    try:
+        for key, value in client.items():
+            if value != 'idem':
+                clients[index][key] = value
+    except IndexError:
         print('Client is not in clients list')
 
 
@@ -121,15 +122,20 @@ if __name__ == '__main__':
     elif command == 'D':
         list_clients()
         print('')
-        index = int(input('please, digit the id of client for delete: '))
+        index = int(input('please, digit clients id for delete: '))
         print('')
-        #client_name = _get_client_name()
         delete_client(index)
         list_clients()
     elif command == 'U':
-        client_name = _get_client_name()
-        updated_client_name = input('What is the updated client name? ')
-        update_client(client_name, updated_client_name)
+        list_clients()
+        index = int(input('please, digit clients id for update: '))
+        client = {
+                 'name': _get_client_field('name'),
+                 'company': _get_client_field('company'),
+                 'email': _get_client_field('email'),
+                 'position': _get_client_field('position'),
+                }
+        update_client(index, client)
         list_clients()
     elif command == 'S':
         client_name = _get_client_name()
