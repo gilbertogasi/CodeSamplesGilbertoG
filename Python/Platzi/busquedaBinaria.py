@@ -2,7 +2,7 @@
 #La busqueda binaria es un algoritmo que sirve para buscar un valor entre un grupo inmenso de valores
 #basicamente se trata de partir una lista de valores a la mitad, a fin de buscar un valor de forma más
 #rápida.
-S
+
 import math
 
 def binary_search(numbers, nfind, low, high):
