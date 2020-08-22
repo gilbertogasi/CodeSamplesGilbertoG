@@ -1,0 +1,1 @@
+Entrar a la Unidad principal desde Ubuntu: cd ../../mnt/c/Users/gilbe/
